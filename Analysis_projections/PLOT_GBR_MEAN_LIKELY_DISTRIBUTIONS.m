@@ -1,33 +1,20 @@
 %__________________________________________________________________________
 %
-% REEFMOD PROJECTIONS OF GBR MEAN (WEIGHTED DISTRIBUTIONS)
+% REEFMOD COUNTERFACTUAL CONSTRUCTIONAL STATE (DISTRIS)
 %
-% Yves-Marie Bozec, y.bozec@uq.edu.au, 04/2024
+% Yves-Marie Bozec, y.bozec@uq.edu.au, 07/2023
 %__________________________________________________________________________
 clear
-SaveDir = '';
+SaveDir = 'FIGS/Raw_figs/'
 
-SETTINGS_PLOTS % general settings for plotting
+load('GBR.7.0_averages_DHW8.mat')
+% load('GBR.7.0_likely_runs.mat') % gives the IDs of runs sampled by bootstrap
+% load('GBR.7.0_likely_runs_NEW.mat'); boot_select = '_BOOT100_SSP'; % gives the IDs of runs sampled by bootstrap (N=100)
+load('GBR.7.0_likely_runs_NEW2.mat'); boot_select = '_BOOT1000_SSP';  % gives the IDs of runs sampled by bootstrap (N=1000)
 
-load('GBR.7.0_averages_DHW8.mat') % output metrics averaged across 3,806 reefs (ie, GBR mean values)
-load('GBR.7.0_likely_runs_NEW.mat') % gives the IDs of likely runs sampled by bootstrap (N=100) [see SAMPLE_LIKELIHOOD_RUNS.m]
+SETTINGS_PLOTS
 
 N = size(LIKELY_RUNS(1).select,2); % number of bootstrap samples
-
-% THIS WORKS THE SAME WAY FOR ALL MAIN OUTPUTS:
-% - GBR mean total coral cover
-% - GBR mean coral cover of heat sensitive taxa
-% - GBR mean coral cover of heat tolerant taxa
-% - GBR mean heat tolerance of heat sensitive taxa
-% - GBR mean heat tolerance of heat tolerant taxa
-% - GBR mean density of coral juvemiles (all axa)
-% - GBR mean proportion of unhealthy reefs (reef below 5% total coral cover)
-% To plot any of those just comment/uncomment the associated line below
-
-% Draws box-whisker plots of yearly (or biannual) distribution of the mean GBR from the weighted ensemble runs for each SSP.
-% LIKELY_RUNS(ssp).select is a predetermined list of 2,000 bootstrapped run IDs for each SSP (100 random sampling with replacement
-% across all GCMs for each of the 20 cyclone scenarios), where the probability of selecting a GCM is proportional to its
-% ECS-based likelihood relative to other GCMs (see by SAMPLE_LIKELIHOOD_RUNS.m).
 
 for ssp = 1:5
 
@@ -39,14 +26,15 @@ for ssp = 1:5
 
     % Concatenate all gcm runs
     X = nan(1,94); % primer
-
     for gcm = gcm_list
-        X = [X ; all_models(ssp,gcm).C_tot(:,1:end)]; OutputName = 'CC_TOT'; maxY = 56; stepY = 10; Ylab = 'Mean coral cover (%)';
+        % X = [X ; all_models(ssp,gcm).C_tot(:,1:end)];OutputName = 'CC_TOT'; maxY = 56; stepY = 10; Ylab = 'Mean coral cover (%)';
         % X = [X ; sum(all_models(ssp,gcm).C_taxa(:,1:end,1:4),3)]; OutputName = 'CC_SENSIT'; maxY = 42; stepY = 10; Ylab = 'Mean coral cover (%)';
         % X = [X ; sum(all_models(ssp,gcm).C_taxa(:,1:end,5:6),3)]; OutputName = 'CC_RESIST'; maxY = 42; stepY = 10;  Ylab = 'Mean coral cover (%)';
-        % X = [X ; nanmean(all_models(ssp,gcm).C_taxa_HT_mean(:,1:end,1:4),3)]; OutputName = 'HT_SENSIT'; maxY = 7.6; stepY = 1; Ylab = 'Mean HT (°C-week)';
+        X = [X ; nanmean(all_models(ssp,gcm).C_taxa_HT_mean(:,1:end,1:4),3)]; OutputName = 'HT_SENSIT'; maxY = 7.6; stepY = 1; Ylab = 'Mean HT (°C-week)';
         % X = [X ; nanmean(all_models(ssp,gcm).C_taxa_HT_mean(:,1:end,5:6),3)]; OutputName = 'HT_RESIST'; maxY = 7.6; stepY = 1; Ylab = 'Mean HT (°C-week)';
         % X = [X ; (all_models(ssp,gcm).nb_coral_juv(:,1:end)+all_models(ssp,gcm).nb_coral_recruit(:,1:end))/400]; OutputName = 'NB_JUV'; maxY = 11.7; stepY = 2; Ylab = 'Mean number of juveniles (m^{-2})';
+        % X = [X ; all_models(ssp,gcm).nb_healthy_reefs(:,1:end)*100/3806]; OutputName = 'PROP_H20_REEFS'; maxY = 100; stepY = 10; Ylab = 'Healthy reef habitats (%)';
+        % X = [X ; 100-all_models(ssp,gcm).nb_healthy_reefs(:,1:end)*100/3806]; OutputName = 'PROP_UNH20_REEFS'; maxY = 100; stepY = 20; Ylab = 'Unhealthy reef habitats (%)';
         % X = [X ; all_models(ssp,gcm).nb_unhealthy_reefs(:,1:end)*100/3806]; OutputName = 'PROP_UNH05_REEFS'; maxY = 100; stepY = 20; Ylab = 'Unhealthy reef habitats (%)';
     end
 
@@ -60,10 +48,11 @@ for ssp = 1:5
         X_lik = [X_lik ; X(select(:,n),:)];
     end
 
-    X_lik = X_lik(2:end,:); % remove te primer
+    X_lik = X_lik(2:end,:); % remove the primer
 
     % Combine values by 2-year intervals
-    Y = [X_lik(:,1:2:end) ; X_lik(:,2:2:end)]; % to get a distri every 2 steps
+    % Y = [X_lik(:,1:2:end) ; X_lik(:,2:2:end)]; % to get a biennal distri
+    Y = [X_lik(:,2:2:end)]; % to get a biennal distri starting in 2008 ending 2100
 
     % Format list of years accordingly
     Z = repmat(2008:2:2100,size(Y,1),1);
@@ -76,10 +65,35 @@ for ssp = 1:5
     Y_select = reshape(Y, size(Y,1)*size(Y,2), 1);
     Z_select = single(reshape(Z, size(Z,1)*size(Z,2), 1));
 
-    I = ismember(Z_select, 2008:2:2100); % Only plot every two years
+    I = ismember(Z_select, 2008:2:2100); % spot the selected years
 
     hold on
-    boxplot(Y_select(I==1),Z_select(I==1),'outliers',0.1,'Plotstyle','compact','Color',rgb(All_SSP_colours(ssp)),'symbol','')
+    hb = boxplot(Y_select(I==1),Z_select(I==1),'Plotstyle','compact','Color',rgb(All_SSP_colours(ssp)),'symbol','');
+
+    % Record outliers
+    hOutliers = findobj(hb,'Tag','Outliers');
+    yy = get(hOutliers,'YData');
+    NbOutliers = zeros(size(yy));
+    for l = 1:length(NbOutliers)
+        if isnan(yy{l,1}) == 1
+            NbOutliers(l) = 0 ;
+        else
+            NbOutliers(l) = length(yy{l,1}) ; % NaN will be recorded as 1, while in fact there is no outlier
+        end
+    end
+    disp(['Total number of boxplots: ' num2str(length(NbOutliers))])
+    disp(['Number of boxplots without outliers: ' num2str(length(find(NbOutliers==0)))])
+    disp(['Maximum number of outliers (as % of points): ' num2str(100*max(NbOutliers)/size(Y,1))])
+    disp(['Mean number of outliers (as % of points): ' num2str(100*mean(NbOutliers)/size(Y,1))])
+
+    hICR = findobj(hb,'Tag','Box'); zz = get(hICR,'YData');
+    hMedianOuter = findobj(hb,'Tag','MedianOuter'); zz_mo = get(hMedianOuter,'YData');
+    % hMedianInner = findobj(hb,'Tag','MedianInner'); zz_mi = get(hMedianInner,'YData');
+
+    % Store all results
+    SUMMARY(ssp).Y = Y;
+    SUMMARY(ssp).stat_descriptors = {'Year';'25th pctile';'75th pctile';'median';'nb of outliers'};
+    SUMMARY(ssp).stats = [[2008:2:2100]' cell2mat(zz) cell2mat(zz_mo) NbOutliers];
 
     set(gca,'XTickLabel',{' '})
     axis([7 48 0 maxY]) % 8 start in 2022
@@ -94,10 +108,40 @@ for ssp = 1:5
     T1 = title(All_SSP_names(ssp),'Units','normalized','FontName', 'Arial','FontWeight','bold','FontSize',14);
     T1.Color = rgb(All_SSP_colours(ssp));
 
-    % savefig(hfig,[SaveDir 'GBR.7.0_DHW8_Likely_Distri_GBR_Mean_' OutputName '_SSP' All_SSPs{ssp} '.fig'])
-    savefig(hfig,[SaveDir 'GBR.7.0_DHW8_Likely_Distri_GBR_Mean_' OutputName '_BOOT100_SSP' All_SSPs{ssp} '.fig'])
+    savefig(hfig,[SaveDir 'GBR.7.0_DHW8_Likely_Distri_GBR_Mean_' OutputName boot_select All_SSPs{ssp} '.fig'])
 
     close all
 
 end
 
+save(['STAT_LIKDISTRI_' OutputName], 'SUMMARY')
+
+% Detailed assessment
+TMP = [SUMMARY(1).stats(:,[1 4]) SUMMARY(2).stats(:,4) SUMMARY(3).stats(:,4) SUMMARY(4).stats(:,4) SUMMARY(5).stats(:,4)];
+ALL_Y = [];
+
+figure; 
+for i=1:5
+    plot([2008:2:2100],TMP(:,(i+1):end),'Color',rgb(All_SSP_colours{i}),'LineWidth',1.5)
+    hold on
+    ALL_Y = [ALL_Y ; SUMMARY(i).Y];
+end
+
+% Median and ICR in 2024 and 2040 (across all SSPs)
+select_year = [9 17]; % column 8 is 2022, 9 is 2024, 17 is 2040, 22 is 2050, 47 is 2100
+CC_median = median(ALL_Y(:,select_year))
+CC_25th = prctile(ALL_Y(:,select_year),25)
+CC_75th = prctile(ALL_Y(:,select_year),75)
+
+% Median in 2024 for each SSP
+median(SUMMARY(1).Y(:,9))
+median(SUMMARY(2).Y(:,9))
+median(SUMMARY(3).Y(:,9))
+median(SUMMARY(4).Y(:,9))
+median(SUMMARY(5).Y(:,9))
+
+% Median and ICR under SSP2-4.5 in 2050 and 2100
+select_year = [22 47]; % column 22 is 2050, 47 is 2100
+CC_median = median(SUMMARY(3).Y(:,select_year))
+CC_25th = prctile(SUMMARY(3).Y(:,select_year),25)
+CC_75th = prctile(SUMMARY(3).Y(:,select_year),75)
