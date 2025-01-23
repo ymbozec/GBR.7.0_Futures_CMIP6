@@ -67,14 +67,16 @@ Coral variables include:
 
 [**Analysis_hindcast**](https://github.com/ymbozec/GBR_futures/Analysis_hindcast)
 
-Contains scripts for the hindcast reconstruction (2008-2023)
+Scripts for the hindcast reconstruction (2008-2023)
 
 [**Analysis_projections**](https://github.com/ymbozec/GBR_futures/Analysis_projections)
 
-Contains scripts for the analysis of foreward projections (2024-2100)
+Scripts for the analysis of foreward projections (2024-2100)
 
 [**Analysis_drivers**](https://github.com/ymbozec/GBR_futures/Analysis_drivers)
-Contains the scripts for running the statistical models of drivers
+
+Scripts for running the statistical models of drivers
 
 [**Validation**](https://github.com/ymbozec/GBR_futures/Validation)
-Contains the scripts for the validation of the hindcast coral cover reconstruction and the predictions of past bleaching
+
+Scripts for the validation of the hindcast coral cover reconstruction and the predictions of past bleaching
