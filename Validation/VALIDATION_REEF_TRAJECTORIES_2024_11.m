@@ -18,7 +18,6 @@ TIME =  2007.5:0.5:2023.5 ;
 %% Load AIMS LTMP observations for the whole GBR
 % Load last AIMS observations including manta and fixed transect data (LTMP+MMP)
 load('/home/ym/Dropbox/REEFMOD/REEFMOD_DATA/Coral_observations_GBR/2024_from_RIMRep_DMS//GBR_AIMS_OBS_CORAL_COVER_2024.mat')
-all_project_codes = [1:3];
 
 DATA_TR_LTMP = GBR_AIMS_OBS_CORAL_COVER(strcmp(string(GBR_AIMS_OBS_CORAL_COVER.project_code),'LTMP')==1 & ...
     strcmp(string(GBR_AIMS_OBS_CORAL_COVER.data_type),'photo-transect')==1,:);
@@ -31,7 +30,7 @@ DATA_TR_MMP.CCOVER = 100*DATA_TR_MMP.mean; % calculate percent coral cover
 
 DATA_MT_LTMP = GBR_AIMS_OBS_CORAL_COVER(strcmp(string(GBR_AIMS_OBS_CORAL_COVER.project_code),'LTMP')==1 & ...
     strcmp(string(GBR_AIMS_OBS_CORAL_COVER.data_type),'manta')==1,:);
-DATA_MT_LTMP.CCOVER = predict(LTMP_Transect2Tow_Model2, 100*DATA_MT_LTMP.mean); % calculate percent coral cover (transect equivalent
+DATA_MT_LTMP.CCOVER = predict(LTMP_Transect2Tow_Model2, sqrt(100*DATA_MT_LTMP.mean)).^2; % calculate percent coral cover (transect equivalent
 
 % Group all data
 DATA_ALL = [DATA_TR_LTMP ; DATA_TR_MMP ; DATA_MT_LTMP];
@@ -48,7 +47,7 @@ DESIGN = varfun(@sum, DATA_ALL(DATA_ALL.YearReefMod>=2009,:),'GroupingVariables'
 
 %% PLOT REEF by REEF
 SaveDir = 'VALIDATION_RUNS_2024_NOV';
-filename= 'VALID_REEF' ;
+filename= 'VALID_NEW_REEF' ;
 FontSizeLabelTicks = 9; FontSizeLabelAxes = 10; FontSizeLabelTitles = 11;
 
 MIN_OBS = 9;

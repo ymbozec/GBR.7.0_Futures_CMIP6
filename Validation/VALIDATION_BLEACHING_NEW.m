@@ -25,8 +25,8 @@ DHW_YearID = [32 ; 33 ; 36 ; 38]; % corresponding year in the DHW matrix
 CC_threshold = 0; % minimum cover before bleaching (reefs with lower cover would bias the observed relative change)
 
 %% SELECT THE PLOTTED VARIABLES
-% showing_HT = 'no' ; % to plot the observed and predicted cover change
-showing_HT = 'yes' ; % to plot predicted cover changes with HT before/after bleaching
+showing_HT = 'no' ; % to plot the observed and predicted cover change
+% showing_HT = 'yes' ; % to plot predicted cover changes with HT before/after bleaching
 
 select_region = 1:3806 ; % select all regions
 % select_region = find(GBR_REEFS.AREA_DESCR=='Far Northern');
@@ -95,6 +95,15 @@ for yr = 1:length(BleachingYear)
                     HT = HT_sensit(select_region,CC_YearId(yr));
                     DATA_BLEACHING_2016.HTfinal = HT(s);
 
+                    disp('Mean average shift in HT at 8-10 DHW')
+                    s8_10 = find(DHW(s)>=8 & DHW(s)<=10);
+                    HT_DIFF = DATA_BLEACHING_2016.HTfinal(s8_10)-DATA_BLEACHING_2016.HTinit(s8_10);
+                    round(mean(HT_DIFF),1)
+
+                    disp('95% prediction interval')
+                    PI1 = mean(HT_DIFF) - 1.96*sqrt(std(HT_DIFF)^2 + std(HT_DIFF)^2/length(s8_10))
+                    PI2 = mean(HT_DIFF) + 1.96*sqrt(std(HT_DIFF)^2 + std(HT_DIFF)^2/length(s8_10))
+
                     writetable(DATA_BLEACHING_2016, [MyFolder 'DATA_BLEACHING_2016.csv'])
 
                 end
@@ -110,7 +119,7 @@ for yr = 1:length(BleachingYear)
             axis([-0.2 15.2 -100 190]); title([num2str(BleachingYear(yr)) ' MHW'])
 
             % Load all AIMS observations including manta and fixed transect data (LTMP+MMP)
-            load('/home/ym/Dropbox/REEFMOD/REEFMOD_DATA/Coral_observations_GBR/2024_from_RIMRep_DMS//GBR_AIMS_OBS_CORAL_COVER_2024.mat')
+            load('/home/ym/Dropbox/REEFMOD/REEFMOD_DATA/Coral_observations_GBR/2024_from_RIMRep_DMS/GBR_AIMS_OBS_CORAL_COVER_2024.mat')
             all_project_codes = [1:3];
 
             % Display key metrics of the coral response
@@ -119,6 +128,10 @@ for yr = 1:length(BleachingYear)
             Z = Y(s);
             disp('mean relative loss at DHW between 8-10')
             mean(Z(s8_10))
+            disp('95% prediction interval')
+            PI1 = mean(Z(s8_10)) - 1.96*sqrt(std(Z(s8_10))^2 + std(Z(s8_10))^2/length(s8_10))
+            PI2 = mean(Z(s8_10)) + 1.96*sqrt(std(Z(s8_10))^2 + std(Z(s8_10))^2/length(s8_10))
+
             disp('associated ICR')
             prctile(Z(s8_10),[25 75])
 
@@ -145,7 +158,8 @@ for yr = 1:length(BleachingYear)
                     case 3
                         MY_DATA = GBR_AIMS_OBS_CORAL_COVER(strcmp(string(GBR_AIMS_OBS_CORAL_COVER.project_code),'LTMP')==1 & ...
                             strcmp(string(GBR_AIMS_OBS_CORAL_COVER.data_type),'manta')==1,:);
-                        MY_DATA.CCOVER = predict(LTMP_Transect2Tow_Model2, 100*MY_DATA.mean); % calculate percent coral cover (transect equivalent
+                        MY_DATA.CCOVER = predict(LTMP_Transect2Tow_Model2, sqrt(100*MY_DATA.mean)).^2; % calculate percent coral cover (transect equivalent
+
                         my_marker = 'o';
                         my_fill = 'w';
                 end
