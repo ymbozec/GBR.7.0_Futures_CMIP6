@@ -1,4 +1,4 @@
-# GBR_futures
+# GBR.7.0_Futures_CMIP6
 This repository contains the scripts and data used in the analyses of possible coral futures for Australia's Great Barrier Reef under CMIP-6 scenarios of greenhouse gas emissions.
 
 Model projections were obtained using version 7.0 of the eco-evolutionary model ReefMod-GBR, available here:
