@@ -2,13 +2,13 @@ clear
 
 outfilename ='HINDCAST_METRICS_2008-2023.mat';
 
-MyDir = '/home/ym/REEFMOD/REEFMOD_GBR_OUTPUTS/GBR.7.0_CMIP6_2024_02/Raw_outputs/';
+MyDir = '/home/ym/Dropbox/REEFMOD/REEFMOD_GBR_OUTPUTS/GBR.7.0_CMIP6_2024_04/Raw_outputs/';
 
 % any of the GCM/SSP scenarios would show same hindcast
 load([MyDir 'sR0_GBR.7.0_herit0.3_SSP119_CNRM-ESM2-1.mat'], 'META', 'coral_cover_per_taxa',...
     'nb_coral_recruit','nb_coral_juv','nb_coral_adol','nb_coral_adult','nb_coral_offspring','coral_larval_supply', 'coral_HT_mean')
 
-load('/home/ym/REEFMOD/REEFMOD.7.0_GBR/data/GBR_REEF_POLYGONS_2024.mat')
+load('/home/ym/Dropbox/REEFMOD/REEFMOD.7.0_GBR/data/GBR_REEF_POLYGONS_2024.mat')
 
 % Initial step is end of 2007 (winter), first step is summer 2008, last step is end of 2017
 start_year = 2007.5 ;
@@ -42,7 +42,7 @@ for s=1:META.nb_coral_types
 
 end
 
-area_w = log(1+META.area_habitat)/sum(log(1+META.area_habitat)); % weigh by habitat area
+area_w = log(1+META.area_habitat)/sum(log(1+META.area_habitat)); % weight with habitat area
 
 %% For reef selection
 lat_cutoff = -10 ; % exclude reefs above (north) this latitude
@@ -68,7 +68,7 @@ select.GBR_IN = find(GBR_REEFS.LAT<lat_cutoff & GBR_REEFS.Shelf_position==1);
 select.GBR_MID = find(GBR_REEFS.LAT<lat_cutoff & GBR_REEFS.Shelf_position==2); 
 select.GBR_OUT = find(GBR_REEFS.LAT<lat_cutoff & GBR_REEFS.Shelf_position==3); 
 
-%% Function to calculate mean values across a specific region weighted by reef area of that region
+%% Function to calculate mean values across a specific region weighted by reef areas of that region
 weighted_mean = @(x,w,select) (w(select,1)'*x(select,:)/sum(w(select,1)))';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -81,6 +81,30 @@ MEAN_TRAJECTORIES.GBR = weighted_mean(Coral_tot.M(:,2:end), area_w, select.GBR);
 MEAN_TRAJECTORIES.NORTH = weighted_mean(Coral_tot.M(:,2:end), area_w, select.North);
 MEAN_TRAJECTORIES.CENTER = weighted_mean(Coral_tot.M(:,2:end), area_w, select.Centre);
 MEAN_TRAJECTORIES.SOUTH = weighted_mean(Coral_tot.M(:,2:end), area_w, select.South);
+
+% Calculate GBR_mean for each year
+GBR_mean = nan(size(coral_cover_tot,[1 3]));
+
+for simul=1:20
+    GBR_mean(simul,2:end) = weighted_mean(squeeze(coral_cover_tot(simul,select.GBR, 2:end)), area_w, select.GBR);
+end
+
+disp('average and sd of GBR_mean coral cover')
+MEAN_GBR_mean = mean(GBR_mean(:,2:end),1)
+SD_GBR_mean = std(GBR_mean(:,2:end),1)
+
+disp('95% prediction interval of the GBR mean')
+PI1_GBR_mean = MEAN_GBR_mean - 1.96*sqrt(SD_GBR_mean.^2 + (SD_GBR_mean.^2)/20 )
+PI2_GBR_mean = MEAN_GBR_mean + 1.96*sqrt(SD_GBR_mean.^2 + (SD_GBR_mean.^2)/20 )
+
+disp('annual average and sd of GBR_mean coral cover over the simulated period')
+Z = GBR_mean(:,2:end);
+MEAN_ANNUAL_GBR_mean = mean(Z(:))
+SD_ANNUAL_GBR_mean = std(Z(:))
+
+disp('95% prediction interval of the annual average of GBR mean')
+PI1_MEAN_GBR_mean = MEAN_ANNUAL_GBR_mean - 1.96*sqrt(SD_ANNUAL_GBR_mean.^2 + (SD_ANNUAL_GBR_mean.^2)/length(Z(:)) )
+PI2_MEAN_GBR_mean = MEAN_ANNUAL_GBR_mean + 1.96*sqrt(SD_ANNUAL_GBR_mean.^2 + (SD_ANNUAL_GBR_mean.^2)/length(Z(:)) )
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2) Rates of change of coral cover 
@@ -178,7 +202,7 @@ MEAN_ANNUAL_REL_CHANGES.SOUTH = weighted_mean(ANNUAL_REL_CHANGE, area_w, select.
 % MEAN_ANNUAL_ABS_CHANGE.SOUTH_out = weighted_mean(ANNUAL_ABS_CHANGE, area_w, select_reefs);
 % MEAN_ANNUAL_REL_CHANGES.SOUTH_out = weighted_mean(ANNUAL_REL_CHANGE, area_w, select_reefs);
 % 
-%% Carry-on recent coral mortality to estimate rubble in 2018
+%% Old stuff to carry-on recent coral mortality for estimating rubble at the end of the hindcast
 % CURRENT_RUBBLE_COVER = squeeze(rubble(:,:,end)) + META.convert_rubble *(sum(coral_cover_lost_bleaching(:,:,(end-5):end),3)+...
 %     sum(coral_cover_lost_COTS(:,:,(end-5):end),3));
 

@@ -3,6 +3,8 @@ SaveDir = ''
 
 load('/home/ym/Dropbox/REEFMOD/REEFMOD.7.0_GBR/data/GBR_REEF_POLYGONS_2024.mat')
 load('/home/ym/Dropbox/REEFMOD/REEFMOD_GBR_OUTPUTS/GBR.7.0_CMIP6_2024_02/Analysis_hindcast/HINDCAST_METRICS_2008-2023.mat')
+% Extract again coral cover for each run for the calculation of model erros - any of the GCM/SSP scenarios would show same hindcast
+load('/home/ym/Dropbox/REEFMOD/REEFMOD_GBR_OUTPUTS/GBR.7.0_CMIP6_2024_04/Raw_outputs/sR0_GBR.7.0_herit0.3_SSP119_CNRM-ESM2-1.mat', 'coral_cover_per_taxa')
 
 %% Graphic parameters
 myGraphicParms.FontSizeLabelTicks = 8;
@@ -22,7 +24,6 @@ load('/home/ym/Dropbox/REEFMOD/REEFMOD.7.0_GBR/data/Corals/LTMP_Transect2Tow_202
 
 % Load last AIMS observations including manta and fixed transect data (LTMP+MMP)
 load('/home/ym/Dropbox/REEFMOD/REEFMOD_DATA/Coral_observations_GBR/2024_from_RIMRep_DMS//GBR_AIMS_OBS_CORAL_COVER_2024.mat')
-all_project_codes = [1:3];
 
 DATA_TR_LTMP = GBR_AIMS_OBS_CORAL_COVER(strcmp(string(GBR_AIMS_OBS_CORAL_COVER.project_code),'LTMP')==1 & ...
     strcmp(string(GBR_AIMS_OBS_CORAL_COVER.data_type),'photo-transect')==1,:);
@@ -35,7 +36,7 @@ DATA_TR_MMP.CCOVER = 100*DATA_TR_MMP.mean; % calculate percent coral cover
 
 DATA_MT_LTMP = GBR_AIMS_OBS_CORAL_COVER(strcmp(string(GBR_AIMS_OBS_CORAL_COVER.project_code),'LTMP')==1 & ...
     strcmp(string(GBR_AIMS_OBS_CORAL_COVER.data_type),'manta')==1,:);
-DATA_MT_LTMP.CCOVER = predict(LTMP_Transect2Tow_Model2, 100*DATA_MT_LTMP.mean); % calculate percent coral cover (transect equivalent
+DATA_MT_LTMP.CCOVER = predict(LTMP_Transect2Tow_Model2, sqrt(100*DATA_MT_LTMP.mean)).^2; % calculate percent coral cover (transect equivalent
 
 % Group all data
 ALL_OBS = [DATA_TR_LTMP ; DATA_TR_MMP ; DATA_MT_LTMP];
@@ -63,7 +64,7 @@ hfig = figure;
 width=1000; height=200; set(hfig,'color','w','units','points','position',[0,0,width,height])
 set(hfig, 'Resize', 'off')
 
-%-- GBR
+%% -- GBR-wide
 subplot(1,4,1) ; TitleReefSelection = {'';'GBR'}; display_OBS = 1;
 pos = get(gca, 'Position'); pos(1) = pos_anchor; %[x y width height]
 set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
@@ -81,14 +82,39 @@ MyYLabel.Units='centimeters';
 MyYLabel.Position(1) = -0.6;
 
 % Calculate model error
-PRED_MEAN = area_w'*Coral_tot.M(:,2:end)/sum(area_w);
 OBS_MEAN = ALL_OBS_MEANS.mean_CCOVER(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
-E =  PRED_MEAN(2:end)' - OBS_MEAN(2:end); % exclude 2008 because initialisation uses observations
-TitleReefSelection
-round(mean(E),1)
-round(std(E),1)
+OBS_N = ALL_OBS_MEANS.GroupCount(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
+I = find(OBS_N<5);
 
-%-- NORTHERN
+% Need to reclaculate GBR_mean for each year for each individual run
+coral_cover_tot = squeeze(sum(coral_cover_per_taxa(:,:,2:17,:),4));
+Region_mean = nan(size(coral_cover_tot,[1 3]));
+
+for simul=1:20
+    Region_mean(simul,:) = weighted_mean(squeeze(coral_cover_tot(simul,:, :)), area_w, select.GBR);
+end
+
+E = Region_mean - OBS_MEAN'; 
+E(:,I) = nan(size(E,1),length(I)); % delete years with too few observations.
+E(:,1) = nan(size(E,1),1); % also exclude 2008 because too close to initialisation
+
+TitleReefSelection
+disp('annual mean and sd of model error')
+F = E(isnan(E)==0);
+round(mean(F),1) % annual mean error
+round(std(F),1)
+
+disp('95% prediction interval of the mean error')
+PI1_Region_mean = mean(F) - 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+PI2_Region_mean = mean(F) + 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+
+disp('95% central interval')
+round(prctile(F, [2.5 97.5],1),1)
+
+% Track annual model errors for later plot
+AnnualModelError.GBR = nanmean(E,1);
+
+%% -- NORTHERN
 subplot(1,4,2) ; TitleReefSelection = {'Northern region'}; display_OBS = 1;
 pos = get(gca, 'Position'); pos(1) = pos_anchor+pos_switch; %[x y width height]
 set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
@@ -102,14 +128,39 @@ plot(ALL_OBS_MEANS.YEAR2(select_yr), ALL_OBS_MEANS.mean_CCOVER(select_yr),'o','M
 uistack(p_mean,'top')
 
 % Calculate model error
-PRED_MEAN = area_w'*Coral_tot.M(:,2:end)/sum(area_w);
 OBS_MEAN = ALL_OBS_MEANS.mean_CCOVER(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
-E =  PRED_MEAN(2:end)' - OBS_MEAN(2:end); % exclude 2008 because initialisation uses observations
-TitleReefSelection
-round(mean(E),1)
-round(std(E),1)
+OBS_N = ALL_OBS_MEANS.GroupCount(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
+I = find(OBS_N<5);
 
-%-- CENTRAL
+% Need to reclaculate GBR_mean for each year for each individual run
+coral_cover_tot = squeeze(sum(coral_cover_per_taxa(:,:,2:17,:),4));
+Region_mean = nan(size(coral_cover_tot,[1 3]));
+
+for simul=1:20
+    Region_mean(simul,:) = weighted_mean(squeeze(coral_cover_tot(simul,:, :)), area_w, select.North);
+end
+
+E = Region_mean - OBS_MEAN'; 
+E(:,I) = nan(size(E,1),length(I)); % delete years with too few observations.
+E(:,1) = nan(size(E,1),1); % also exclude 2008 because too close to initialisation
+
+TitleReefSelection
+disp('annual mean and sd of model error')
+F = E(isnan(E)==0);
+round(mean(F),1) % annual mean error
+round(std(F),1)
+
+disp('95% prediction interval of the mean error')
+PI1_Region_mean = mean(F) - 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+PI2_Region_mean = mean(F) + 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+
+disp('95% central interval')
+round(prctile(F, [2.5 97.5],1),1)
+
+% Track annual model errors for later plot
+AnnualModelError.North = nanmean(E,1);
+
+%% -- CENTRAL
 subplot(1,4,3) ; TitleReefSelection = {'Central region'}; display_OBS = 1;
 pos = get(gca, 'Position'); pos(1) = pos_anchor+2*pos_switch; %[x y width height]
 set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
@@ -123,14 +174,39 @@ plot(ALL_OBS_MEANS.YEAR2(select_yr), ALL_OBS_MEANS.mean_CCOVER(select_yr),'o','M
 uistack(p_mean,'top')
 
 % Calculate model error
-PRED_MEAN = area_w'*Coral_tot.M(:,2:end)/sum(area_w);
 OBS_MEAN = ALL_OBS_MEANS.mean_CCOVER(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
-E =  PRED_MEAN(2:end)' - OBS_MEAN(2:end); % exclude 2008 because initialisation uses observations
-TitleReefSelection
-round(mean(E),1)
-round(std(E),1)
+OBS_N = ALL_OBS_MEANS.GroupCount(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
+I = find(OBS_N<5);
 
-%-- SOUTHERN
+% Need to reclaculate GBR_mean for each year for each individual run
+coral_cover_tot = squeeze(sum(coral_cover_per_taxa(:,:,2:17,:),4));
+Region_mean = nan(size(coral_cover_tot,[1 3]));
+
+for simul=1:20
+    Region_mean(simul,:) = weighted_mean(squeeze(coral_cover_tot(simul,:, :)), area_w, select.Centre);
+end
+
+E = Region_mean - OBS_MEAN'; 
+E(:,I) = nan(size(E,1),length(I)); % delete years with too few observations.
+E(:,1) = nan(size(E,1),1); % also exclude 2008 because too close to initialisation
+
+TitleReefSelection
+disp('annual mean and sd of model error')
+F = E(isnan(E)==0);
+round(mean(F),1) % annual mean error
+round(std(F),1)
+
+disp('95% prediction interval of the mean error')
+PI1_Region_mean = mean(F) - 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+PI2_Region_mean = mean(F) + 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+
+disp('95% central interval')
+round(prctile(F, [2.5 97.5],1),1)
+
+% Track annual model errors for later plot
+AnnualModelError.Central = nanmean(E,1);
+
+%% -- SOUTHERN
 subplot(1,4,4) ; TitleReefSelection = {'Southern region'}; display_OBS = 1;
 pos = get(gca, 'Position'); pos(1) = pos_anchor+3*pos_switch; %[x y width height]
 set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
@@ -144,12 +220,105 @@ plot(ALL_OBS_MEANS.YEAR2(select_yr), ALL_OBS_MEANS.mean_CCOVER(select_yr),'o','M
 uistack(p_mean,'top')
 
 % Calculate model error
-PRED_MEAN = area_w'*Coral_tot.M(:,2:end)/sum(area_w);
 OBS_MEAN = ALL_OBS_MEANS.mean_CCOVER(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
-E =  PRED_MEAN(2:end)' - OBS_MEAN(2:end); % exclude 2008 because initialisation uses observations
+OBS_N = ALL_OBS_MEANS.GroupCount(ismember(ALL_OBS_MEANS.YEAR2, YEARS)==1);
+I = find(OBS_N<5);
+
+% Need to reclaculate GBR_mean for each year for each individual run
+coral_cover_tot = squeeze(sum(coral_cover_per_taxa(:,:,2:17,:),4));
+Region_mean = nan(size(coral_cover_tot,[1 3]));
+
+for simul=1:20
+    Region_mean(simul,:) = weighted_mean(squeeze(coral_cover_tot(simul,:, :)), area_w, select.South);
+end
+
+E = Region_mean - OBS_MEAN'; 
+E(:,I) = nan(size(E,1),length(I)); % delete years with too few observations.
+E(:,1) = nan(size(E,1),1); % also exclude 2008 because too close to initialisation
+
 TitleReefSelection
-round(mean(E),1)
-round(std(E),1)
+disp('annual mean and sd of model error')
+F = E(isnan(E)==0);
+round(mean(F),1) % annual mean error
+round(std(F),1)
+
+disp('95% prediction interval of the mean error')
+PI1_Region_mean = mean(F) - 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+PI2_Region_mean = mean(F) + 1.96*sqrt(std(F).^2 + (std(F).^2)/length(F) ) 
+
+disp('95% central interval')
+round(prctile(E(:), [2.5 97.5],1),1)
+
+% Track annual model errors for later plot
+AnnualModelError.South = nanmean(E,1);
+
+%-- EXPORT --------------------
+IMAGENAME = [SaveDir filename];
+print(hfig, ['-r' num2str(myGraphicParms.res )], [IMAGENAME '.png' ], ['-d' 'png'] );
+crop([IMAGENAME '.png'],0,20); close(hfig);
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 2) Plot annual error over time if any evidence of trend
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+filename= 'GBR.7.0.HINDCAST_ERROR_PER_REGION' ;
+
+hfig = figure;
+width=1000; height=200; set(hfig,'color','w','units','points','position',[0,0,width,height])
+set(hfig, 'Resize', 'off')
+TIME_SINCE = 2:16; % time after initialisation
+YRange = [-15 15];
+%% -- GBR-wide
+subplot(1,4,1) ; TitleReefSelection = {'';'GBR'}; display_OBS = 1;
+pos = get(gca, 'Position'); pos(1) = pos_anchor; %[x y width height]
+set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
+hold on; yline(0,'--k')
+plot(TIME_SINCE, AnnualModelError.GBR(2:end), 'Color',rgb('Navy'),'LineWidth',1.5)
+plot([0 0], TIME_SINCE(end)*[1 1], '--k')
+MyXLabel = xlabel({'Years since initialisation'},'FontName', 'Arial', 'FontWeight','normal','FontSize',myGraphicParms.FontSizeLabelAxes);
+ylim(YRange)
+MyYLabel = ylabel({'Error on mean coral cover (%)'},'FontName', 'Arial', 'FontWeight','normal','FontSize',myGraphicParms.FontSizeLabelAxes);
+MyYLabel.Units='centimeters';
+MyYLabel.Position(1) = -0.6;
+
+title(TitleReefSelection,'FontName', 'Arial', 'FontWeight','bold','FontSize',myGraphicParms.FontSizeLabelTitles);
+
+%% -- NORTHERN
+subplot(1,4,2) ; TitleReefSelection = {'Northern region'}; display_OBS = 1;
+pos = get(gca, 'Position'); pos(1) = pos_anchor+pos_switch; %[x y width height]
+set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
+hold on; yline(0,'--k')
+plot(TIME_SINCE, AnnualModelError.North(2:end), 'Color',rgb('Navy'),'LineWidth',1.5)
+plot([0 0], TIME_SINCE(end)*[1 1], '--k')
+MyXLabel = xlabel({'Years since initialisation'},'FontName', 'Arial', 'FontWeight','normal','FontSize',myGraphicParms.FontSizeLabelAxes);
+ylim(YRange)
+
+title(TitleReefSelection,'FontName', 'Arial', 'FontWeight','bold','FontSize',myGraphicParms.FontSizeLabelTitles);
+
+%% -- CENTRAL
+subplot(1,4,3) ; TitleReefSelection = {'Central region'}; display_OBS = 1;
+pos = get(gca, 'Position'); pos(1) = pos_anchor+2*pos_switch; %[x y width height]
+set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
+hold on; yline(0,'--k')
+plot(TIME_SINCE, AnnualModelError.Central(2:end), 'Color',rgb('Navy'),'LineWidth',1.5)
+plot([0 0], TIME_SINCE(end)*[1 1], '--k')
+MyXLabel = xlabel({'Years since initialisation'},'FontName', 'Arial', 'FontWeight','normal','FontSize',myGraphicParms.FontSizeLabelAxes);
+ylim(YRange)
+
+title(TitleReefSelection,'FontName', 'Arial', 'FontWeight','bold','FontSize',myGraphicParms.FontSizeLabelTitles);
+
+%% -- SOUTHERN
+subplot(1,4,4) ; TitleReefSelection = {'Southern region'}; display_OBS = 1;
+pos = get(gca, 'Position'); pos(1) = pos_anchor+3*pos_switch; %[x y width height]
+set(gca, 'Position', pos,'Layer', 'top','FontName', 'Arial' ,'FontSize',myGraphicParms.FontSizeLabelTicks);
+hold on; yline(0,'--k')
+plot(TIME_SINCE, AnnualModelError.South(2:end), 'Color',rgb('Navy'),'LineWidth',1.5)
+plot([0 0], TIME_SINCE(end)*[1 1], '--k')
+MyXLabel = xlabel({'Years since initialisation'},'FontName', 'Arial', 'FontWeight','normal','FontSize',myGraphicParms.FontSizeLabelAxes);
+ylim(YRange)
+
+title(TitleReefSelection,'FontName', 'Arial', 'FontWeight','bold','FontSize',myGraphicParms.FontSizeLabelTitles);
 
 %-- EXPORT --------------------
 IMAGENAME = [SaveDir filename];
